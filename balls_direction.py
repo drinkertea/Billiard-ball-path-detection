@@ -14,6 +14,7 @@ def get_edges(img):
     return edges
 
 def get_circlies(img):
+    ball_pixel_size = 68 / 2 * square_pixel_size / 30
     circles = cv2.HoughCircles(
         img,
         cv2.HOUGH_GRADIENT,
@@ -21,10 +22,13 @@ def get_circlies(img):
         50,
         param1=50,
         param2=30,
-        minRadius=55,
-        maxRadius=100
+        minRadius=int(ball_pixel_size) - 10,
+        maxRadius=int(ball_pixel_size) + 10
     )
-    return np.squeeze(circles)
+    res = np.squeeze(circles)
+    for c in res:
+        c[2] = ball_pixel_size
+    return res
 
 def fix_perspective(img):
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
@@ -35,19 +39,19 @@ def fix_perspective(img):
 
     corners = np.float32([[x[0,0], x[0, 1]] for x in corners])
 
-    dists = 0
-    cnt = 0
-    for i in range(0, W - 1):
-        for j in range(0, H - 1):
-            a = corners[j * 7 + i]
-            cue_b = corners[j * 7 + i + 1]
-            dists += np.linalg.norm(a-cue_b)
-            cnt += 1
+    wavg = 0
+    for i in range(0, W):
+        wavg += np.linalg.norm(corners[i] - corners[28 + i])
+    wavg /= W * (H - 1)
 
-    step = int(math.ceil(dists / cnt))
+    havg = 0
+    for i in range(0, H):
+        havg += np.linalg.norm(corners[i * 7] - corners[i * 7 + 6])
+    havg /= H * (W - 1)
+
+    step = int(math.ceil((wavg + havg) / 2))
     global square_pixel_size
     square_pixel_size = step
-
     corners = np.float32([corners[0], corners[28], corners[34], corners[6]])
 
     h, w, _ = img.shape
